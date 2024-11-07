@@ -1,0 +1,30 @@
+config.json notes:
+
+* Under misc
+	* Setting multi-DAG to true will use the multi_task
+	json strucutre
+
+* Under multi_task:
+	* set_number: number of individual tasksets for a target utilization
+	* task_number_per_set: number of tasks in each taskset
+	* utilization: taskset target utilization (not task graph utilization)
+		* I've changed this to be the target MAX util, so now script will rerun overall util
+		* I've also added a util step
+	* periods: period set candidate for each task graph
+
+Under dag_config:
+	* parallelism: maximum number of parallelism of the dag
+
+Notes:
+* The original paper uses 8 cores with a max parallelism of 8, with the number of tasks per taskset being 5.
+* We will try 4 cores, max parallelism of 4, with the number of tasks per taskset being 5.
+
+
+Implmentation Plan:
+
+* DONE, Use the multi-task generation version, no single task
+* DONE, Use it to generate task graph "skeletons" that have a certain target task graph utilization
+* DONE, We won't use the wcets it generates, nor the period
+* DONE, Allocate out own wcets onto each of the nodes using random wcet selection from our own workloads
+* DONE, Cacluate a new period such that: P = sum(all wcets under ref 20/20 allocation) / U
+* DONE, Then round up that P to a mulitple of 2, or something. We just harmonic periods

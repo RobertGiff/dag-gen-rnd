@@ -11,6 +11,7 @@
 import os, sys, logging, getopt, time, json
 import networkx as nx
 import random
+import numpy as np
 from tqdm import tqdm
 
 from rnddag import DAG, DAGTaskset
@@ -26,6 +27,50 @@ def parse_configuration(config_path):
         raise EnvironmentError("Unable to open %s" % (config_path))
 
     return config_json
+
+def round_to_nearest_2_seconds(ns):
+    # Convert 2 seconds to nanoseconds
+    two_seconds_ns = 2 * 1_000_000_000
+
+    # Calculate the remainder when divided by two seconds in nanoseconds
+    remainder = ns % two_seconds_ns
+
+    # Determine whether to round up or down to the nearest multiple of 2 seconds
+    if remainder >= (two_seconds_ns / 2):
+        # If remainder is greater than or equal to half of 2 seconds, round up
+        rounded_ns = ns + (two_seconds_ns - remainder)
+    else:
+        # Otherwise, round down
+        rounded_ns = ns - remainder
+
+    return rounded_ns
+
+def round_to_nearest_second(ns):
+    second_ns = 1_000_000_000
+    remainder = ns % second_ns
+
+    if remainder >= (second_ns / 2):
+        rounded_ns = ns + (second_ns - remainder)
+    else:
+        rounded_ns = ns - remainder
+
+    return rounded_ns
+
+def round_up_to_nearest_2_seconds(ns):
+    # Convert 2 seconds to nanoseconds
+    #two_seconds_ns = 2 * 1_000_000_000
+    two_seconds_ns = 1_000_000_000
+
+    # Calculate the remainder when divided by two seconds in nanoseconds
+    remainder = ns % two_seconds_ns
+
+    # If there's any remainder, round up to the next multiple
+    if remainder != 0:
+        rounded_ns = ns + (two_seconds_ns - remainder)
+    else:
+        rounded_ns = ns
+
+    return rounded_ns
 
 
 def print_usage_info():
@@ -142,8 +187,9 @@ if __name__ == "__main__":
         # set of tasksets
         n_set = config["multi_task"]["set_number"]
 
-        # total utilization
-        u_total = config["multi_task"]["utilization"]
+        # max utilization
+        u_max = config["multi_task"]["utilization"]
+        u_step = config["multi_task"]["util_step"]
 
         # task number
         n = config["multi_task"]["task_number_per_set"]
@@ -156,71 +202,129 @@ if __name__ == "__main__":
         period_set = [(x) for x in period_set]
 
         # DAG generation main loop
-        for set_index in tqdm(range(n_set)):
-            logging.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            # create a new taskset
-            Gamma = DAGTaskset()
+        for u_total in np.arange(1.0, u_max+u_step, u_step):
+            for set_index in tqdm(range(n_set)):
+                logging.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                # create a new taskset
+                Gamma = DAGTaskset()
 
-            U_p = []
+                U_p = []
 
-            # DAG taskset utilization
-            U = uunifast_discard(n, u=u_total, nsets=n_set, ulimit=cores)
+                # DAG taskset utilization
+                U = uunifast_discard(n, u=u_total, nsets=n_set, ulimit=cores)
 
-            # generate periods
-            periods = gen_period(period_set, n)
-            logging.info(periods)
+                # generate periods
+                periods = gen_period(period_set, n)
+                logging.info(periods)
 
-            for i in range(n):
-                # calculate workload (in us)
-                w = U[set_index][i] * periods[i]
+                for i in range(n):
+                    # calculate workload (in us)
+                    w = U[set_index][i] * periods[i]
 
-                # create a new DAG
-                G = DAG(i=i, U=U[set_index][i], T=periods[i], W=w)
+                    # create a new DAG
+                    G = DAG(i=i, U=U[set_index][i], T=periods[i], W=w)
 
-                # generate nodes in the DAG
-                # G.gen_nfj()
-                G.gen_rnd(parallelism=dag_config["parallelism"],
-                          layer_num_min=dag_config["layer_num_min"],
-                          layer_num_max=dag_config["layer_num_max"],
-                          connect_prob=dag_config["connect_prob"])
+                    # generate nodes in the DAG
+                    # G.gen_nfj()
+                    G.gen_rnd(parallelism=dag_config["parallelism"],
+                              layer_num_min=dag_config["layer_num_min"],
+                              layer_num_max=dag_config["layer_num_max"],
+                              connect_prob=dag_config["connect_prob"])
 
-                # generate sub-DAG execution times
-                n_nodes = G.get_number_of_nodes()
-                dummy = config["misc"]["dummy_source_and_sink"]
-                c_ = gen_execution_times(n_nodes, w, round_c=True, dummy=dummy)
-                nx.set_node_attributes(G.get_graph(), c_, 'C')
+                    # generate sub-DAG execution times
+                    n_nodes = G.get_number_of_nodes()
+                    dummy = config["misc"]["dummy_source_and_sink"]
+                    c_ = gen_execution_times(n_nodes, w, round_c=True, dummy=dummy)
+                    nx.set_node_attributes(G.get_graph(), c_, 'C')
 
-                # calculate actual workload and utilization
-                w_p = 0
-                for item in c_.items():
-                    w_p = w_p + item[1]
+                    # calculate actual workload and utilization
+                    w_p = 0
+                    for item in c_.items():
+                        w_p = w_p + item[1]
 
-                u_p = w_p / periods[i]
-                U_p.append(u_p)
+                    u_p = w_p / periods[i]
+                    U_p.append(u_p)
 
-                # print("Task {}: U = {}, T = {}, W = {}>>".format(i, U[0][i], periods[i], w))
-                # print("w = {}, w' = {}, diff = {}".format(w, w_p, (w_p - w) / w * 100))
+                    # print("Task {}: U = {}, T = {}, W = {}>>".format(i, U[0][i], periods[i], w))
+                    # print("w = {}, w' = {}, diff = {}".format(w, w_p, (w_p - w) / w * 100))
 
-                # set execution times on edges
-                w_e = {}
-                for e in G.get_graph().edges():
-                    ccc = c_[e[0]]
-                    w_e[e] = ccc
+                    # set execution times on edges
+                    w_e = {}
+                    for e in G.get_graph().edges():
+                        ccc = c_[e[0]]
+                        w_e[e] = ccc
 
-                nx.set_edge_attributes(G.get_graph(), w_e, 'label')
+                    nx.set_edge_attributes(G.get_graph(), w_e, 'label')
 
-                # print internal data
-                if config["misc"]["print_DAG"]:
-                    G.print_data()
-                    logging.info("")
+                    # print internal data
+                    if config["misc"]["print_DAG"]:
+                        G.print_data()
+                        logging.info("")
 
-                # save the graph
-                if config["misc"]["save_to_file"]:
-                    G.save(basefolder="./data/data-multi-m{}-u{:.1f}/{}/".format(cores, u_total, set_index))
+                    # RG Modifications
+                    profile_path = os.path.join(base_path, "profiles")
+                    # The task graph is saved in the DAG named G
+                    print("RG MODIFICATIONS")
+                    graph = G.get_graph()
+                    sum_wcet = 0.0
+                    for node, data in graph.nodes(data=True):
+                        assert 'C' in data
 
-                # (optional) plot the graph
-                # G.plot()
+                        # Randomly select a workload to use
+                        # Get all subdirectories in profile_path
+                        subdirs = [d for d in os.listdir(profile_path) if os.path.isdir(os.path.join(profile_path, d))]
+                        assert subdirs, "No subdirectories found in the given path."
+                        # Select one of the subdirectories at random
+                        random_subdir = random.choice(subdirs)
+                        print(f"workload chosen: {random_subdir}")
 
-            logging.info("Total U:", sum(U_p), U_p)
-            logging.info("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-            logging.info("")
+                        random_subdir_path = os.path.join(profile_path, random_subdir)
+
+                        # Construct the full path to the file
+                        file_path = os.path.join(random_subdir_path, "1048575_1440/wcet.txt")
+
+                        # Open the file
+                        try:
+                            with open(file_path, 'r') as file:
+                                wcet = float(file.read())
+                                print(f"ref wcet: {wcet}")
+                        except FileNotFoundError:
+                            print(f"The file '{file_path}' does not exist.")
+                        except Exception as e:
+                            print(f"An error occurred: {e}")
+
+                        # Generate our own WCET using a random workload
+                        data['C'] = wcet  # For example, increment 'C' by 10
+                        data['type'] = random_subdir
+                        sum_wcet += wcet
+
+                    # Now calculate what the period is going to be
+                    print(f"sum wcet: {sum_wcet}")
+                    G.G.graph['W'] = sum_wcet
+
+                    util = u_p 
+                    print(f"Target util for this task graph: {util}")
+
+                    period = sum_wcet / util
+                    # Now round to the nearest multiple of 2, in seconds, to set up a harmonic period value
+                    #period = round_up_to_nearest_2_seconds(period)
+                    #period = round_to_nearest_second(period)
+                    period = round_to_nearest_2_seconds(period)
+                    G.G.graph['T'] = period
+
+                    # Now re-update the util to account for this rounding
+                    G.G.graph['U'] = sum_wcet / period
+                    print(f"New period for this task graph: {period}")
+                    print(f"New util for this task graph: {G.G.graph['U']}")
+                    print(graph.nodes.data())
+
+                    # save the graph
+                    if config["misc"]["save_to_file"]:
+                        G.save(basefolder="./data/data-multi-m{}-u{:.1f}/{}/".format(cores, u_total, set_index))
+
+                    # (optional) plot the graph
+                    # G.plot()
+
+                logging.info("Total U:", sum(U_p), U_p)
+                logging.info("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+                logging.info("")
