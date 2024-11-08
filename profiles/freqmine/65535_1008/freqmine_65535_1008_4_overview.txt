@@ -1,0 +1,24 @@
+PARSEC Benchmark Suite Version 3.0-beta-20150206
+transaction number is 250000
+1425
+11337
+34098
+63741
+99770
+149038
+199629
+221458
+198502
+143333
+83353
+39081
+14773
+4463
+1043
+176
+19
+1
+the data preparation cost 0.127235 seconds, the FPgrowth cost 0.633571 seconds
+start sec: 4850, nsec: 549800085, tot ms: 4850549.800085
+end   sec: 4851, nsec: 310655659, tot ms: 4851310.655659
+760.855574

@@ -45,6 +45,20 @@ def round_to_nearest_2_seconds(ns):
 
     return rounded_ns
 
+def round_to_nearest_100ms(ns):
+    hundred_ms_ns = 100_000_000
+    remainder = ns % hundred_ms_ns
+
+    if remainder >= (hundred_ms_ns / 2):
+        rounded_ns = ns + (hundred_ms_ns - remainder)
+    else:
+        rounded_ns = ns - remainder
+
+    if rounded_ns == 0:
+        rounded_ns = hundred_ms_ns
+
+    return rounded_ns
+
 def round_to_nearest_second(ns):
     second_ns = 1_000_000_000
     remainder = ns % second_ns
@@ -286,7 +300,8 @@ if __name__ == "__main__":
                         # Open the file
                         try:
                             with open(file_path, 'r') as file:
-                                wcet = float(file.read())
+                                wcet = float(file.readline().strip())
+                                wcet *= 1_000_000_000 # convert from s to ns
                                 print(f"ref wcet: {wcet}")
                         except FileNotFoundError:
                             print(f"The file '{file_path}' does not exist.")
@@ -310,6 +325,7 @@ if __name__ == "__main__":
                     #period = round_up_to_nearest_2_seconds(period)
                     #period = round_to_nearest_second(period)
                     period = round_to_nearest_2_seconds(period)
+                    #period = round_to_nearest_100ms(period)
                     G.G.graph['T'] = period
 
                     # Now re-update the util to account for this rounding
