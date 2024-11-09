@@ -28,6 +28,21 @@ def parse_configuration(config_path):
 
     return config_json
 
+def round_to_nearest_power_of_2(value_ns):
+    """
+    Rounds the given value in nanoseconds to the nearest power of 2.
+
+    Args:
+        value_ns (int): The period value in nanoseconds.
+
+    Returns:
+        int: The rounded value in nanoseconds, which is a power of 2.
+    """
+    import math
+    # Calculate the nearest power of 2
+    power = round(math.log2(value_ns))
+    return int(2 ** power)
+
 def round_to_nearest_2_seconds(ns):
     # Convert 2 seconds to nanoseconds
     two_seconds_ns = 2 * 1_000_000_000
@@ -39,6 +54,23 @@ def round_to_nearest_2_seconds(ns):
     if remainder >= (two_seconds_ns / 2):
         # If remainder is greater than or equal to half of 2 seconds, round up
         rounded_ns = ns + (two_seconds_ns - remainder)
+    else:
+        # Otherwise, round down
+        rounded_ns = ns - remainder
+
+    return rounded_ns
+
+def round_to_nearest_5_seconds(ns):
+    # Convert 2 seconds to nanoseconds
+    five_seconds_ns = 5 * 1_000_000_000
+
+    # Calculate the remainder when divided by two seconds in nanoseconds
+    remainder = ns % five_seconds_ns
+
+    # Determine whether to round up or down to the nearest multiple of 2 seconds
+    if remainder >= (five_seconds_ns / 2):
+        # If remainder is greater than or equal to half of 2 seconds, round up
+        rounded_ns = ns + (five_seconds_ns - remainder)
     else:
         # Otherwise, round down
         rounded_ns = ns - remainder
@@ -324,9 +356,11 @@ if __name__ == "__main__":
                     # Now round to the nearest multiple of 2, in seconds, to set up a harmonic period value
                     #period = round_up_to_nearest_2_seconds(period)
                     #period = round_to_nearest_second(period)
-                    period = round_to_nearest_2_seconds(period)
+                    #period = round_to_nearest_2_seconds(period)
+                    #period = round_to_nearest_5_seconds(period)
                     #period = round_to_nearest_100ms(period)
-                    G.G.graph['T'] = period
+                    period = round_to_nearest_power_of_2(period)
+                    G.G.graph['T'] = int(period)
 
                     # Now re-update the util to account for this rounding
                     G.G.graph['U'] = sum_wcet / period
