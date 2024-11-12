@@ -361,7 +361,7 @@ if __name__ == "__main__":
                     #period = round_to_nearest_5_seconds(period)
                     #period = round_to_nearest_100ms(period)
                     period = round_to_nearest_power_of_2(period)
-                    G.G.graph['T'] = int(period)
+                    G.G.graph['T'] = str(int(period))
 
                     # Now re-update the util to account for this rounding
                     G.G.graph['U'] = sum_wcet / period

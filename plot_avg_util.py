@@ -11,6 +11,7 @@ dir_pattern = re.compile(r'data-multi-m4-u([0-9\.]+)')
 
 # Dictionary to store utilizations for each directory
 util_dict = {}
+all_utils = {}  # To store each individual taskset utilization
 
 # Traverse through the data directory
 for subdir in os.listdir(data_dir):
@@ -36,7 +37,11 @@ for subdir in os.listdir(data_dir):
                                         utilization.append(float(line.split()[1]))
                     # Append the total utilization of the current taskset
                     if utilization:
-                        total_utils.append(sum(utilization))
+                        total_util = sum(utilization)
+                        total_utils.append(total_util)
+                        if util_value not in all_utils:
+                            all_utils[util_value] = []
+                        all_utils[util_value].append(total_util)
 
             # Calculate average of total utilizations for the current subdir
             if total_utils:
@@ -45,17 +50,29 @@ for subdir in os.listdir(data_dir):
 
 # Sort the utilization dictionary by the x-axis values (utilization)
 x_vals = sorted(util_dict.keys())
-print(f"x_vals: {x_vals}")
 y_vals = [util_dict[x] for x in x_vals]
-print(f"y_vals: {y_vals}")
 
 # Plotting the results
-plt.figure(figsize=(10, 6))
-plt.plot(x_vals, y_vals, marker='o', linestyle='-', color='b', label='Average Sum Utilization')
-plt.plot(x_vals, x_vals, linestyle='--', color='r', label='y = x (Ideal Reference)')
-plt.xlabel('Utilization of Taskset (uX)')
-plt.ylabel('Average Sum Total Utilization')
-plt.title('Average Sum Utilization of Tasksets')
-plt.grid(True)
-plt.legend()
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
+
+# First plot: Average sum utilization
+ax1.plot(x_vals, y_vals, marker='o', linestyle='-', color='b', label='Average Sum Utilization')
+ax1.plot(x_vals, x_vals, linestyle='--', color='r', label='y = x (Ideal Reference)')
+ax1.set_xlabel('Utilization of Taskset (uX)')
+ax1.set_ylabel('Average Sum Total Utilization')
+ax1.set_title('Average Sum Utilization of Tasksets')
+ax1.grid(True)
+ax1.legend()
+
+# Second plot: Individual utilizations without averaging
+for util_value in sorted(all_utils.keys()):
+    ax2.scatter([util_value] * len(all_utils[util_value]), all_utils[util_value], color='b', alpha=0.6)
+ax2.plot(x_vals, x_vals, linestyle='--', color='r', label='y = x (Ideal Reference)')
+ax2.set_xlabel('Utilization of Taskset (uX)')
+ax2.set_ylabel('Individual Total Utilizations')
+ax2.set_title('Individual Taskset Utilizations')
+ax2.grid(True)
+ax2.legend()
+
+plt.tight_layout()
 plt.show()
