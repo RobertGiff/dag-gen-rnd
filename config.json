@@ -1,7 +1,7 @@
 {
   "misc": {
     "multi-DAG": true,
-    "cores": 4,
+    "cores": 10,
     "print_DAG": true,
     "save_to_file": true,
     "dummy_source_and_sink": false,

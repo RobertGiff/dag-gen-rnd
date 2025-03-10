@@ -248,7 +248,8 @@ if __name__ == "__main__":
         period_set = [(x) for x in period_set]
 
         # DAG generation main loop
-        for u_total in np.arange(1.0, u_max+u_step, u_step):
+        #for u_total in np.arange(1.0, u_max+u_step, u_step):
+        for u_total in np.arange(0.2, u_max+u_step, u_step):
             for set_index in tqdm(range(n_set)):
                 logging.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
                 # create a new taskset
@@ -327,8 +328,8 @@ if __name__ == "__main__":
                         random_subdir_path = os.path.join(profile_path, random_subdir)
 
                         # Construct the full path to the file
-                        file_path = os.path.join(random_subdir_path, "1048575_1440/wcet.txt") # ref of 20/20
-                        #file_path = os.path.join(random_subdir_path, "31_360/wcet.txt")  # ref of 5/5
+                        #file_path = os.path.join(random_subdir_path, "1048575_1440/wcet.txt") # ref of 20/20
+                        file_path = os.path.join(random_subdir_path, "31_360/wcet.txt")  # ref of 5/5
 
                         # Open the file
                         try:
