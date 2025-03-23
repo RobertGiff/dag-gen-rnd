@@ -11,13 +11,13 @@
 import os, sys, logging, getopt, time, json
 import networkx as nx
 import random
+import time
 import numpy as np
 from tqdm import tqdm
 
 from rnddag import DAG, DAGTaskset
 from generator import uunifast_discard, uunifast
 from generator import gen_period, gen_execution_times
-
 
 def parse_configuration(config_path):
     try:
@@ -121,6 +121,39 @@ def round_up_to_nearest_2_seconds(ns):
 
 def print_usage_info():
     logging.info("[Usage] python3 daggen-cli.py --config config_file")
+
+
+def calculate_critical_path_length(G):
+    # Make sure we're working with a directed graph
+    if not G.is_directed():
+        raise ValueError("Graph must be directed")
+    
+    # Get the execution time for each node
+    execution_times = nx.get_node_attributes(G, 'C')
+    
+    # Initialize earliest completion time for all nodes
+    earliest_completion = {}
+    
+    # Topological sort the graph
+    for node in nx.topological_sort(G):
+        # Initialize with the node's execution time
+        earliest_completion[node] = execution_times.get(node, 0)
+        
+        # Check all predecessors and update if necessary
+        max_pred_path = 0
+        for pred in G.predecessors(node):
+            if pred in earliest_completion:
+                path_length = earliest_completion[pred]
+                max_pred_path = max(max_pred_path, path_length)
+        
+        # Add the maximum predecessor path length to the current node's execution time
+        earliest_completion[node] += max_pred_path
+    
+    # The critical path length is the maximum value in earliest_completion
+    if earliest_completion:
+        return max(earliest_completion.values())
+    else:
+        return 0
 
 
 if __name__ == "__main__":
@@ -247,29 +280,48 @@ if __name__ == "__main__":
         period_set = config["multi_task"]["periods"]
         period_set = [(x) for x in period_set]
 
+        # Track how many of each util we have generated
+        current_index = {}
+        target_utils = []
+        for u_total in np.arange(2.0, u_max+u_step, u_step):
+            u_total = round(u_total, 1)
+            target_utils.append(u_total)
+            current_index[u_total] = 0
+
+        # Summary stats
+        num_tasksets_generated = 0
+        num_tasksets_skipped = 0
+        num_tasksets_unschedulable = 0
+        num_taskset_saved = 0
+        start_time = time.time()
+
         # DAG generation main loop
         #for u_total in np.arange(1.0, u_max+u_step, u_step):
-        for u_total in np.arange(0.2, u_max+u_step, u_step):
-            for set_index in tqdm(range(n_set)):
+        for u_total in target_utils:
+            print(f"Trying to populate utilization: {u_total}")
+            while current_index[u_total] < n_set:
+                num_tasksets_generated += 1
                 logging.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
                 # create a new taskset
-                Gamma = DAGTaskset()
+                taskset = []
 
                 U_p = []
 
                 # DAG taskset utilization
-                U = uunifast_discard(n, u=u_total, nsets=n_set, ulimit=cores)
+                U = uunifast_discard(n, u=u_total, nsets=1, ulimit=cores)
 
                 # generate periods
                 periods = gen_period(period_set, n)
                 logging.info(periods)
 
+                skip_this_taskset = False
+
                 for i in range(n):
                     # calculate workload (in us)
-                    w = U[set_index][i] * periods[i]
+                    w = U[0][i] * periods[i]
 
                     # create a new DAG
-                    G = DAG(i=i, U=U[set_index][i], T=periods[i], W=w)
+                    G = DAG(i=i, U=U[0][i], T=periods[i], W=w)
 
                     # generate nodes in the DAG
                     # G.gen_nfj()
@@ -311,7 +363,7 @@ if __name__ == "__main__":
                     # RG Modifications
                     profile_path = os.path.join(base_path, "profiles")
                     # The task graph is saved in the DAG named G
-                    print("RG MODIFICATIONS")
+                    #print("RG MODIFICATIONS")
                     graph = G.get_graph()
                     sum_wcet = 0.0
                     for node, data in graph.nodes(data=True):
@@ -323,7 +375,7 @@ if __name__ == "__main__":
                         assert subdirs, "No subdirectories found in the given path."
                         # Select one of the subdirectories at random
                         random_subdir = random.choice(subdirs)
-                        print(f"workload chosen: {random_subdir}")
+                        #print(f"workload chosen: {random_subdir}")
 
                         random_subdir_path = os.path.join(profile_path, random_subdir)
 
@@ -336,7 +388,7 @@ if __name__ == "__main__":
                             with open(file_path, 'r') as file:
                                 wcet = float(file.readline().strip())
                                 wcet *= 1_000_000_000 # convert from s to ns
-                                print(f"ref wcet: {wcet}")
+                                #print(f"ref wcet: {wcet}")
                         except FileNotFoundError:
                             print(f"The file '{file_path}' does not exist.")
                         except Exception as e:
@@ -348,11 +400,11 @@ if __name__ == "__main__":
                         sum_wcet += wcet
 
                     # Now calculate what the period is going to be
-                    print(f"sum wcet: {sum_wcet}")
+                    #print(f"sum wcet: {sum_wcet}")
                     G.G.graph['W'] = sum_wcet
 
                     util = u_p 
-                    print(f"Target util for this task graph: {util}")
+                    #print(f"Target util for this task graph: {util}")
 
                     period = sum_wcet / util
                     # Now round to the nearest multiple of 2, in seconds, to set up a harmonic period value
@@ -364,19 +416,46 @@ if __name__ == "__main__":
                     period = round_to_nearest_power_of_2(period)
                     G.G.graph['T'] = str(int(period))
 
+                    crit_path = calculate_critical_path_length(G.get_graph())
+                    if crit_path > period:
+                        skip_this_taskset = True
+                        #print(f"Critical path longer than period, retry")
+                        num_tasksets_unschedulable += 1
+                        break
+                        
                     # Now re-update the util to account for this rounding
                     G.G.graph['U'] = sum_wcet / period
-                    print(f"New period for this task graph: {period}")
-                    print(f"New util for this task graph: {G.G.graph['U']}")
-                    print(graph.nodes.data())
+                    #print(f"New period for this task graph: {period}")
+                    #print(f"New util for this task graph: {G.G.graph['U']}")
+                    #print(graph.nodes.data())
 
-                    # save the graph
-                    if config["misc"]["save_to_file"]:
-                        G.save(basefolder="./data/data-multi-m{}-u{:.1f}/{}/".format(cores, u_total, set_index))
+                    taskset.append(G)
+
+                if config["misc"]["save_to_file"] and not skip_this_taskset:
+                    u_actual = 0
+                    for task in taskset:
+                        u_actual += task.G.graph['U']
+                    u_actual = round(u_actual, 1)
+                    
+                    if u_actual in target_utils and current_index[u_actual] < n_set:
+                        #print(f"SAVING this taskset with utilization {u_actual} to index {current_index[u_actual]}")
+                        for task in taskset:
+                            task.save(basefolder="./data/data-multi-m{}-u{:.1f}/{}/".format(cores, u_actual, current_index[u_actual]))
+                        current_index[u_actual] += 1
+                        num_taskset_saved += 1
+                    else:
+                        #print(f"SKIPPING this taskset with utilization {u_actual}")
+                        num_tasksets_skipped += 1
 
                     # (optional) plot the graph
                     # G.plot()
 
-                logging.info("Total U:", sum(U_p), U_p)
                 logging.info("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
                 logging.info("")
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Elapsed time: {elapsed_time:.4f} seconds")
+        print(f"Num tasksets skipped {num_tasksets_skipped/num_tasksets_generated:.2f}")
+        print(f"Num tasksets unschedulable {num_tasksets_unschedulable/num_tasksets_generated:.2f}")
+        print(f"Num tasksets saved {num_taskset_saved/num_tasksets_generated:.2f}")

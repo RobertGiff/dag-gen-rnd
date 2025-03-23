@@ -1,27 +1,27 @@
 {
   "misc": {
     "multi-DAG": true,
-    "cores": 10,
-    "print_DAG": true,
+    "cores": 4,
+    "print_DAG": false,
     "save_to_file": true,
     "dummy_source_and_sink": false,
     "rnd_seed": 1234
   },
   "multi_task": {
-    "set_number": 200,
+    "set_number": 50,
     "task_number_per_set": 5,
-    "utilization": 5.0,
+    "utilization": 4.0,
     "util_step": 0.2,
     "periods": [1000, 2000, 5000, 10000, 20000, 50000]
   },
   "single_task": {
-    "set_number": 10,
+    "set_number": 2,
     "workload": 10000
   },
   "dag_config": {
     "parallelism": 4,
     "layer_num_min": 3,
     "layer_num_max": 8,
-    "connect_prob": 0.5
+    "connect_prob": 0.25
   }
 }
