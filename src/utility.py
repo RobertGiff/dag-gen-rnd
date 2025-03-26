@@ -10,6 +10,29 @@
 
 import networkx as nx
 
+def gcd(a, b):
+    """Helper function to compute the greatest common divisor using Euclid's algorithm."""
+
+    while b:
+        a, b = b, a % b
+    return a
+
+def lcm(a, b):
+    """Helper function to compute the least common multiple of two numbers."""
+
+    return abs(a * b) // gcd(a, b)
+
+def compute_hyper_period(periods):
+    
+    if not periods:
+        return 0
+    
+    hyper_period = periods[0]
+    for period in periods[1:]:
+        hyper_period = lcm(hyper_period, period)
+
+    return hyper_period
+
 
 def load_task(task_idx, dag_base_folder = "../data/"):
     # << load DAG task <<

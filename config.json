@@ -8,9 +8,9 @@
     "rnd_seed": 1234
   },
   "multi_task": {
-    "set_number": 50,
+    "set_number": 200,
     "task_number_per_set": 5,
-    "utilization": 4.0,
+    "utilization": 5.0,
     "util_step": 0.2,
     "periods": [1000, 2000, 5000, 10000, 20000, 50000]
   },

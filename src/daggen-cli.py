@@ -18,6 +18,7 @@ from tqdm import tqdm
 from rnddag import DAG, DAGTaskset
 from generator import uunifast_discard, uunifast
 from generator import gen_period, gen_execution_times
+from utility import compute_hyper_period
 
 def parse_configuration(config_path):
     try:
@@ -283,7 +284,7 @@ if __name__ == "__main__":
         # Track how many of each util we have generated
         current_index = {}
         target_utils = []
-        for u_total in np.arange(2.0, u_max+u_step, u_step):
+        for u_total in np.arange(1.4, u_max+u_step, u_step):
             u_total = round(u_total, 1)
             target_utils.append(u_total)
             current_index[u_total] = 0
@@ -430,6 +431,17 @@ if __name__ == "__main__":
                     #print(graph.nodes.data())
 
                     taskset.append(G)
+
+                periods = []
+                if periods:
+                    for task in taskset:
+                        periods.append(int(task.G.graph['T']))
+                    smallest_period = min(periods)
+                    hyperperiod = compute_hyper_period(periods)
+
+                    if hyperperiod / smallest_period > 50:
+                        num_tasksets_skipped += 1
+                        skip_this_taskset = True
 
                 if config["misc"]["save_to_file"] and not skip_this_taskset:
                     u_actual = 0
