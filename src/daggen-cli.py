@@ -284,7 +284,7 @@ if __name__ == "__main__":
         # Track how many of each util we have generated
         current_index = {}
         target_utils = []
-        for u_total in np.arange(1.4, u_max+u_step, u_step):
+        for u_total in np.arange(0.2, u_max+u_step, u_step):
             u_total = round(u_total, 1)
             target_utils.append(u_total)
             current_index[u_total] = 0
