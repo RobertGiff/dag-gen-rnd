@@ -452,7 +452,7 @@ if __name__ == "__main__":
                     if u_actual in target_utils and current_index[u_actual] < n_set:
                         #print(f"SAVING this taskset with utilization {u_actual} to index {current_index[u_actual]}")
                         for task in taskset:
-                            task.save(basefolder="./data/data-multi-m{}-u{:.1f}/{}/".format(cores, u_actual, current_index[u_actual]))
+                            task.save(basefolder="./tasksets_m{}_p{}_par{}/data-multi-m{}-u{:.1f}/{}/".format(cores, int(100*dag_config["connect_prob"]), dag_config["parallelism"], cores, u_actual, current_index[u_actual]))
                         current_index[u_actual] += 1
                         num_taskset_saved += 1
                     else:
