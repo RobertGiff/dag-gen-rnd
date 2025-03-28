@@ -2,13 +2,14 @@
   "misc": {
     "multi-DAG": true,
     "cores": 4,
+    "num_partitions": 20,
     "print_DAG": false,
     "save_to_file": true,
     "dummy_source_and_sink": false,
     "rnd_seed": 1234
   },
   "multi_task": {
-    "set_number": 200,
+    "set_number": 100,
     "task_number_per_set": 5,
     "utilization": 5.0,
     "util_step": 0.2,
@@ -22,6 +23,6 @@
     "parallelism": 4,
     "layer_num_min": 3,
     "layer_num_max": 8,
-    "connect_prob": 0.25
+    "connect_prob": 0.5
   }
 }

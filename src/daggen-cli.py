@@ -276,6 +276,7 @@ if __name__ == "__main__":
 
         # number of cores
         cores = config["misc"]["cores"]
+        num_partitions = config["misc"]["num_partitions"]
 
         # Load DAG period set (in us)
         period_set = config["multi_task"]["periods"]
@@ -382,7 +383,10 @@ if __name__ == "__main__":
 
                         # Construct the full path to the file
                         #file_path = os.path.join(random_subdir_path, "1048575_1440/wcet.txt") # ref of 20/20
-                        file_path = os.path.join(random_subdir_path, "31_360/wcet.txt")  # ref of 5/5
+
+                        resource = int(num_partitions / cores)
+
+                        file_path = os.path.join(random_subdir_path, f"{2 ** resource - 1}_{72 * resource}/wcet.txt")  # ref of 5/5
 
                         # Open the file
                         try:
